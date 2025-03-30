@@ -1,4 +1,4 @@
-# Data Visualization: Autonomous Driving Scene Analysis Using Waymo Samples
+# Visualization Demo of Autonomous Driving Scene Analysis Using Waymo Dataset
 
 ## Table of Contents
 - [Project Overview](#project-overview)
@@ -9,6 +9,11 @@
   - [Data Processing](#data-processing)
   - [Scene Classification](#scene-classification)
   - [Visualization](#visualization)
+- [Methodological Framework](#methodological-framework)
+  - [Dataset Structure and Access](#dataset-structure-and-access)
+  - [Point Cloud Processing](#point-cloud-processing)
+  - [3D Object Detection](#3d-object-detection)
+  - [Semantic Segmentation](#semantic-segmentation)
 - [Code Structure](#code-structure)
 - [Usage Guide](#usage-guide)
 - [Project Contributions](#project-contributions)
@@ -16,52 +21,148 @@
 
 ## Project Overview
 
-This project utilizes sample data from the Waymo Open Dataset via Foxglove Studio to develop interactive data visualization tools for analyzing autonomous driving scenes. The primary goal is to create intuitive visualizations that enhance understanding of various driving scenarios, such as urban, suburban, or nighttime scenes. By focusing on visualization design and using pre-existing sample data, this project simplifies a complex framework for use in a data visualization course with limited resources.
+*Content from the original section remains the same...*
 
-## Project Architecture
+## Methodological Framework
 
-The project adopts a simplified modular architecture:
+### Dataset Structure and Access
 
-```mermaid
-flowchart TD
-    A([Foxglove Sample Data]) --> B[Load Data]
-    B --> C[Feature Extraction]
-    C --> D[Rule-Based Classification]
-    D --> E[Generate Visualizations]
-    E --> F([Interactive Exploration])
+This project utilizes the Waymo Open Dataset, which consists of two main components:
+- **Perception Dataset**: Contains high-resolution sensor data and annotations from 1,950 segments, each 20 seconds long
+- **Motion Dataset**: Contains object trajectories and corresponding 3D maps from 103,354 segments, each 20 seconds long
+
+Each segment is a sequence of frames ordered by the frame start timestamp, containing data from multiple sensors:
+
+```python
+# Example: Accessing and loading the Waymo dataset
+import tensorflow as tf
+from waymo_open_dataset import dataset_pb2
+from waymo_open_dataset.utils import frame_utils
+
+# Load data
+def load_waymo_segment(filename):
+    dataset = tf.data.TFRecordDataset(filename, compression_type='')
+    for data in dataset:
+        frame = dataset_pb2.Frame()
+        frame.ParseFromString(bytearray(data.numpy()))
+        yield frame
 ```
 
-- **Data Loading**: Directly accesses sample data from Foxglove Studio.
-- **Feature Extraction**: Extracts key scene features for classification and visualization.
-- **Rule-Based Classification**: Applies simple rules to categorize scenes.
-- **Visualization Generation**: Produces statistical plots and interactive displays.
+### Point Cloud Processing
+
+The Waymo dataset provides rich LiDAR point cloud data that can be processed as follows:
+
+```python
+# Convert raw point cloud data to a visualization format
+def convert_range_image_to_point_cloud(frame, range_images, camera_projections, range_image_top_pose):
+    """
+    Generate point cloud from range images
+    """
+    points, cp_points = frame_utils.convert_range_image_to_point_cloud(
+        frame,
+        range_images,
+        camera_projections,
+        range_image_top_pose
+    )
+    return points, cp_points
+```
+
+Point cloud visualization is implemented using the Open3D library:
+
+```python
+import numpy as np
+import open3d as o3d
+
+def visualize_point_cloud(points):
+    """
+    Visualize point cloud using Open3D
+    """
+    pcd = o3d.geometry.PointCloud()
+    pcd.points = o3d.utility.Vector3dVector(points)
+    o3d.visualization.draw_geometries([pcd])
+```
+
+### 3D Object Detection
+
+Processing 3D bounding boxes from the Waymo dataset:
+
+```python
+from waymo_open_dataset.label_pb2 import Label
+from waymo_open_dataset.utils import transform_utils
+
+def transform_bbox_waymo(label: Label) -> np.ndarray:
+    """
+    Transform an object's 3D bounding box using Waymo tools
+    """
+    heading = -label.box.heading
+    bbox_corners = get_bbox(label)
+    mat = transform_utils.get_yaw_rotation(heading)
+    rot_mat = mat.numpy()[:2, :2]
+    return bbox_corners @ rot_mat
+
+def get_bbox(label: Label) -> np.ndarray:
+    width, length = label.box.width, label.box.length
+    return np.array([
+        [-0.5 * length, -0.5 * width],
+        [-0.5 * length, 0.5 * width],
+        [0.5 * length, -0.5 * width],
+        [0.5 * length, 0.5 * width]
+    ])
+```
+
+### Semantic Segmentation
+
+This project implements 3D semantic segmentation functionality based on the Waymo dataset, using the following method to process point cloud labels:
+
+```python
+def process_point_cloud_with_labels(frame):
+    """
+    Process point cloud and its semantic labels
+    """
+    # Get point cloud data
+    (range_images, camera_projections, _, range_image_top_pose) = \
+        frame_utils.parse_range_image_and_camera_projection(frame)
+    
+    # Convert to point cloud
+    points, cp_points = convert_range_image_to_point_cloud(
+        frame, range_images, camera_projections, range_image_top_pose)
+    
+    # Extract semantic labels
+    point_labels = extract_point_labels(frame, points)
+    
+    return points, point_labels
+```
 
 ## Installation and Setup
 
 ### Prerequisites
 
 - Python 3.8 or higher
+- TensorFlow 2.5+
 - Git
 - Foxglove Studio
-- Basic storage space (no large dataset downloads required)
+- Open3D (for point cloud visualization)
+- Basic storage space (only sample data required for the demo)
 
 ### Installation Steps
 
 1. **Clone the Repository**:
    ```bash
-   git clone https://github.com/Rongxuan-Zhou/Scene-Visualization-Waymo-Samples.git
-   cd Scene-Visualization-Waymo-Samples
+   git clone https://github.com/Rongxuan-Zhou/Scene-Visualization-Waymo-Demo.git
+   cd Scene-Visualization-Waymo-Demo
    ```
 
 2. **Create and Activate Conda Environment**:
    ```bash
-   conda create -n waymo-scene python=3.8
-   conda activate waymo-scene
+   conda create -n waymo-viz python=3.8
+   conda activate waymo-viz
    ```
 
 3. **Install Dependencies**:
    ```bash
-   conda install -c conda-forge numpy pandas matplotlib seaborn
+   pip install waymo-open-dataset-tf-2-11-0
+   pip install tensorflow==2.11.0
+   pip install open3d matplotlib seaborn numpy pandas
    pip install -r requirements.txt
    ```
 
@@ -70,162 +171,80 @@ flowchart TD
 
 ## Data Preparation
 
-This project uses **Foxglove Sample Data**, eliminating the need for downloading or processing large datasets:
+The Waymo Open Dataset can be accessed through the following methods:
 
-1. Open Foxglove Studio.
-2. Access the [Waymo Example](https://app.foxglove.dev/~/view?ds=foxglove-sample-stream&ds.recordingId=rec_0dHYwkGj9g7eA9DE&ds.overrideLayoutId=df51964b-b84a-4e12-a11e-067e2fce9c1c).
-3. Load the sample data to begin analysis and visualization.
+1. **Direct Download**:
+   Download the dataset from the [Waymo Open Dataset website](https://waymo.com/open/data/).
+   
+2. **Loading with TensorFlow**:
+   ```python
+   import tensorflow as tf
+   from waymo_open_dataset.utils import frame_utils
+   
+   # Load TFRECORD file
+   def load_waymo_data(tfrecord_path):
+       dataset = tf.data.TFRecordDataset(tfrecord_path, compression_type='')
+       return dataset
+   ```
 
-This method ensures quick setup and seamless integration with visualization tools.
-
-## Technical Implementation
-
-### Data Processing
-
-The data processing module extracts essential features from the sample data, such as time of day, location, and weather, to support classification and visualization:
-
-```python
-def extract_features(frame):
-    return {
-        'time_of_day': frame.context.stats.time_of_day,
-        'location': frame.context.stats.location,
-        'weather': frame.context.stats.weather
-    }
-```
-
-### Scene Classification
-
-A rule-based classification approach is employed to categorize scenes based on the extracted features, reducing computational demands:
-
-```python
-def classify_scene_rule_based(features):
-    # Time classification
-    time_class = 'unknown'
-    if features['time_of_day'] in ['DAWN', 'DUSK']:
-        time_class = 'low_light'
-    elif features['time_of_day'] == 'DAY':
-        time_class = 'daytime'
-    elif features['time_of_day'] == 'NIGHT':
-        time_class = 'nighttime'
-
-    # Location classification
-    location_class = 'unknown'
-    if features['location'] == 'LOCATION_SF':
-        location_class = 'urban'
-    elif features['location'] == 'LOCATION_PHX':
-        location_class = 'suburban'
-
-    # Weather classification
-    weather_class = 'unknown'
-    if features['weather'] == 'SUNNY':
-        weather_class = 'clear'
-    elif features['weather'] in ['RAIN', 'FOG']:
-        weather_class = 'adverse'
-
-    return {
-        'time_class': time_class,
-        'location_class': location_class,
-        'weather_class': weather_class
-    }
-```
-
-### Visualization
-
-The visualization module generates statistical plots to display scene distributions, emphasizing clarity and efficiency in design:
-
-```python
-import matplotlib.pyplot as plt
-import seaborn as sns
-
-def create_scene_distribution_plots(df):
-    fig, axes = plt.subplots(1, 3, figsize=(15, 5))
-
-    # Time distribution
-    sns.countplot(x='time_class', data=df, ax=axes[0])
-    axes[0].set_title('Time Classes')
-    axes[0].set_xlabel('')
-    axes[0].set_ylabel('Count')
-
-    # Location distribution
-    sns.countplot(x='location_class', data=df, ax=axes[1])
-    axes[1].set_title('Location Classes')
-    axes[1].set_xlabel('')
-    axes[1].set_ylabel('Count')
-
-    # Weather distribution
-    sns.countplot(x='weather_class', data=df, ax=axes[2])
-    axes[2].set_title('Weather Classes')
-    axes[2].set_xlabel('')
-    axes[2].set_ylabel('Count')
-
-    plt.tight_layout()
-    plt.savefig('scene_distributions.png')
-    plt.close()
-```
-
-## Code Structure
-
-The project code is organized clearly for ease of management and extension:
-
-```
-Scene-Visualization-Waymo-Samples/
-├── data/                      # Sample data storage
-│   └── foxglove_samples/      # Foxglove sample data (if downloaded)
-├── scripts/                   # Utility scripts
-│   └── visualization/         # Visualization scripts
-├── src/                       # Source code
-│   ├── data_processing/       # Data processing modules
-│   ├── classification/        # Classification modules
-│   └── visualization/         # Visualization modules
-├── notebooks/                 # Jupyter notebooks for demonstrations
-├── tests/                     # Unit tests
-├── requirements.txt           # Python dependencies
-├── setup.py                   # Project setup script
-└── README.md                  # Project documentation
-```
+3. **Via Foxglove Studio**:
+   Open Foxglove Studio and load the Waymo dataset examples.
 
 ## Usage Guide
 
 ### Basic Usage
 
 ```python
-from src.data_processing import extract_features
-from src.classification import classify_scene_rule_based
-from src.visualization import create_scene_distribution_plots
+# Load and process Waymo data
+from src.data_processing import load_waymo_segment, extract_features
+from src.classification import classify_scene
+from src.visualization import create_visualizations
 import pandas as pd
 
-# Load sample data (pseudo-code; implementation depends on Foxglove integration)
-frames = load_sample_data()
+# Load Waymo dataset
+frames = list(load_waymo_segment('path/to/segment.tfrecord'))
 features_list = [extract_features(frame) for frame in frames]
-classified = [classify_scene_rule_based(f) for f in features_list]
+classified = [classify_scene(f) for f in features_list]
 df = pd.DataFrame(classified)
 
 # Generate visualizations
-create_scene_distribution_plots(df)
+create_visualizations(frames, df)
 ```
 
-### Using with Foxglove Studio
+### Point Cloud Visualization Example
 
-1. Open Foxglove Studio.
-2. Load the [Waymo sample data](https://app.foxglove.dev/~/view?ds=foxglove-sample-stream&ds.recordingId=rec_0dHYwkGj9g7eA9DE&ds.overrideLayoutId=df51964b-b84a-4e12-a11e-067e2fce9c1c).
-3. Explore the data interactively, complemented by Python-generated visualizations.
+```python
+import numpy as np
+import open3d as o3d
+from waymo_open_dataset.utils import frame_utils
 
-## Project Contributions
-
-This project contributes to the field of data visualization by:
-
-1. **Visualization Design**: Developing intuitive visualizations for autonomous driving scenes to enhance interpretability of complex data.
-2. **Resource Adaptation**: Adapting a complex project to limited resources using sample data and simplified methods.
-3. **Interactive Exploration**: Supporting dynamic scene analysis through Foxglove Studio and statistical plots.
-4. **Scalability**: Designing visualizations that can be extended to larger datasets with additional resources, demonstrating future applicability.
-
-These contributions highlight the project's value in data visualization education and practice.
+def visualize_frame_point_cloud(frame):
+    # Parse point cloud data
+    (range_images, camera_projections, _, range_image_top_pose) = \
+        frame_utils.parse_range_image_and_camera_projection(frame)
+    
+    # Convert to point cloud
+    points, _ = frame_utils.convert_range_image_to_point_cloud(
+        frame, range_images, camera_projections, range_image_top_pose)
+    
+    # Concatenate points from all LiDAR sensors
+    points_all = np.concatenate(points, axis=0)
+    
+    # Visualize using Open3D
+    pcd = o3d.geometry.PointCloud()
+    pcd.points = o3d.utility.Vector3dVector(points_all)
+    o3d.visualization.draw_geometries([pcd])
+```
 
 ## Resources and References
 
 - **Data Resources**:
-  - [Waymo Open Dataset](https://waymo.com/open/)
+  - [Waymo Open Dataset - Perception](https://waymo.com/open/data/perception/)
+  - [Waymo GitHub Repository](https://github.com/waymo-research/waymo-open-dataset)
+- **Tutorials**:
+  - [Basic Tutorial Notebook](https://colab.research.google.com/github/waymo-research/waymo-open-dataset/blob/master/tutorial/tutorial.ipynb)
+  - [3D Semantic Segmentation Tutorial](https://github.com/waymo-research/waymo-open-dataset/blob/master/tutorial/tutorial_3d_semseg.ipynb)
+  - [Motion Prediction Tutorial](https://github.com/waymo-research/waymo-open-dataset/blob/master/tutorial/tutorial_motion.ipynb)
 - **Visualization Tools**:
   - [Foxglove Studio Documentation](https://docs.foxglove.dev/docs)
-  - [Matplotlib Documentation](https://matplotlib.org/)
-  - [Seaborn Documentation](https://seaborn.pydata.org/)
+  - [Open3D Documentation](http://www.open3d.org/docs/release/)
