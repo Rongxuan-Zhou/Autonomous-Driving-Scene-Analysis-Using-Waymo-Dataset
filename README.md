@@ -21,7 +21,7 @@
 
 ## Project Overview
 
-*Content from the original section remains the same...*
+This project utilizes data from the Waymo Open Dataset via Foxglove Studio to develop interactive data visualization tools for analyzing autonomous driving scenes. The primary goal is to create intuitive visualizations that enhance understanding of various driving scenarios, such as urban, suburban, or nighttime scenes.
 
 ## Methodological Framework
 
