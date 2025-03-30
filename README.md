@@ -31,6 +31,15 @@ This project utilizes the Waymo Open Dataset, which consists of two main compone
 - **Perception Dataset**: Contains high-resolution sensor data and annotations from 1,950 segments, each 20 seconds long
 - **Motion Dataset**: Contains object trajectories and corresponding 3D maps from 103,354 segments, each 20 seconds long
 
+flowchart TD
+    A([Waymo Dataset]) --> B[Load Data]
+    B --> C[Point Cloud Processing]
+    C --> D[3D Object Detection]
+    C --> E[Semantic Segmentation]
+    D --> F[Generate Visualizations]
+    E --> F
+    F --> G([Interactive Exploration])
+
 Each segment is a sequence of frames ordered by the frame start timestamp, containing data from multiple sensors:
 
 ```python
