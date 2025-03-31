@@ -150,6 +150,45 @@ Visualization features (examples in `scripts/visualization/`):
 
 ## Methodological Framework
 
+```mermaid
+%%{init: {'theme': 'dark'}}%%
+graph TD
+    A[Waymo Open Dataset] --> B[Data Preparation]
+    B --> B1[TFRecord Parsing]
+    B --> B2[MCAP Conversion]
+    B --> B3[Coordinate System Transformation]
+    
+    B1 --> C[Multi-sensor Data Processing]
+    B2 --> C
+    B3 --> C
+    
+    C --> C1[LiDAR Point Cloud Processing]
+    C --> C2[Camera Image Processing]
+    C --> C3[Sensor Fusion]
+    
+    C1 --> D[Perception Tasks]
+    C2 --> D
+    C3 --> D
+    
+    D --> D1[3D Object Detection]
+    D --> D2[Semantic Segmentation]
+    D --> D3[Scene Classification]
+    
+    D1 --> E[Evaluation & Visualization]
+    D2 --> E
+    D3 --> E
+    
+    E --> E1[Quantitative Evaluation]
+    E --> E2[Interactive Visualization]
+    
+    classDef default fill:#2a2a2a,stroke:#ffffff,stroke-width:1px,color:#ffffff
+    classDef highlight fill:#1e3a8a,stroke:#ffffff,stroke-width:2px,color:#ffffff
+    classDef task fill:#3a2a4a,stroke:#ffffff,stroke-width:1px,color:#ffffff
+    
+    class A highlight
+    class D1,D2,D3 task
+```
+
 ### Dataset Structure and Access
 
 The Waymo Open Dataset follows a hierarchical structure:
